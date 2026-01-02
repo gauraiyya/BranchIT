@@ -37,7 +37,7 @@ fun BranchITNavHost(isLoggedIn: Boolean, prefs: SharedPreferences) {
             })
         }
         composable(Destinations.LOGIN) {
-            com.binarybhaskar.branchitandroid.screen.LoginScreen(onLoginSuccess = {
+            com.binarybhaskar.branchitandroid.screen.LoginScreen(prefs = prefs, onLoginSuccess = {
                 navController.navigate(Destinations.SCREEN_CONTENT) {
                     popUpTo(Destinations.LOGIN) { inclusive = true }
                     launchSingleTop = true

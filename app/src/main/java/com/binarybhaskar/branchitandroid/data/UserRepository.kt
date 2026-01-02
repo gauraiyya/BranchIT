@@ -45,12 +45,14 @@ class UserRepository {
         val uid = auth.currentUser?.uid ?: throw IllegalStateException("No user")
         val snapshot = userDoc(uid).get().await()
         val profile = if (snapshot.exists()) {
-            snapshot.toObject(UserProfile::class.java) ?: UserProfile()
+            // Try to map; if mapping returns null, provide a minimal default with uid
+            snapshot.toObject(UserProfile::class.java) ?: UserProfile(uid = uid)
         } else {
             val user = auth.currentUser
             val fallback = UserProfile(
+                uid = uid,
                 displayName = user?.displayName.orEmpty(),
-                photoUrl = user?.photoUrl?.toString().orEmpty(),
+                profilePicUrl = user?.photoUrl?.toString().orEmpty(),
                 updatedAt = System.currentTimeMillis()
             )
             userDoc(uid).set(fallback).await()
@@ -123,7 +125,7 @@ class UserRepository {
             null
         }
 
-        val finalProfile = mappedProfile ?: UserProfile()
+        val finalProfile = mappedProfile ?: UserProfile(uid = uid)
 
         // Update in-memory cache for current UID so subsequent calls are fast
         setCachedProfile(uid, finalProfile)

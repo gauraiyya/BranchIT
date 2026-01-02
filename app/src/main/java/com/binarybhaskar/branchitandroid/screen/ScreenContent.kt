@@ -126,7 +126,7 @@ fun ScreenContent(navController: NavController) {
 
     // Seed from cached profile for instant UI
     var firebasePhotoUrl by remember(user.uid) {
-        mutableStateOf(UserRepository.getCachedProfile()?.photoUrl ?: user.photoUrl?.toString())
+        mutableStateOf(UserRepository.getCachedProfile()?.profilePicUrl ?: user.photoUrl?.toString())
     }
 
     // Background refresh if needed
@@ -134,8 +134,8 @@ fun ScreenContent(navController: NavController) {
         scope.launch {
             try {
                 val profile = repo.getOrCreateProfile()
-                if (profile.photoUrl.isNotBlank()) {
-                    firebasePhotoUrl = profile.photoUrl
+                if (profile.profilePicUrl?.isNotBlank() == true) {
+                    firebasePhotoUrl = profile.profilePicUrl
                 } else if (firebasePhotoUrl.isNullOrBlank()) {
                     firebasePhotoUrl = user.photoUrl?.toString()
                 }

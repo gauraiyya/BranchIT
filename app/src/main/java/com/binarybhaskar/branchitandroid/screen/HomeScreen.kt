@@ -14,9 +14,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.binarybhaskar.branchitandroid.data.UsernameRepository
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import android.util.Log
 import kotlinx.coroutines.launch
 
@@ -24,26 +21,7 @@ import kotlinx.coroutines.launch
 fun HomeScreen() {
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(FirebaseAuth.getInstance().currentUser?.uid) {
-        // Run once per signed-in user. Ensure a username exists for the user; generates one if missing.
-        val auth = FirebaseAuth.getInstance()
-        val user = auth.currentUser
-        if (user != null) {
-            val repo = UsernameRepository(FirebaseFirestore.getInstance(), auth)
-            try {
-                // Using Tasks API; we wire listeners to log success/failure.
-                repo.ensureUsernameIfMissing(user.email)
-                    .addOnSuccessListener {
-                        Log.d("HomeScreen", "Username ensured for user=${user.uid}")
-                    }
-                    .addOnFailureListener { ex ->
-                        Log.w("HomeScreen", "Failed to ensure username", ex)
-                    }
-            } catch (e: Exception) {
-                Log.w("HomeScreen", "Exception while ensuring username", e)
-            }
-        }
-
+    LaunchedEffect(Unit) {
         // Keep any existing coroutine work if needed
         scope.launch {
         }

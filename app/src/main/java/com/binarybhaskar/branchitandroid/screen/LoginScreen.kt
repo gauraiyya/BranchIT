@@ -58,11 +58,23 @@ const val TOS_LINK =
     "bhaskarpatel.me"
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(prefs: SharedPreferences, onLoginSuccess: () -> Unit) {
     val context = LocalContext.current
     val auth = FirebaseAuth.getInstance()
-    val prefs = context.getSharedPreferences("login_prefs", Context.MODE_PRIVATE)
+    val repo = com.binarybhaskar.branchitandroid.data.UsernameRepository(
+        com.google.firebase.firestore.FirebaseFirestore.getInstance(), auth
+    )
     var isLoading by remember { mutableStateOf(false) }
+    val handleLoginSuccess: () -> Unit = {
+        val user = auth.currentUser
+        if (user != null) {
+            repo.ensureUsernameIfMissing(user.email)
+                .addOnSuccessListener { _: Void? -> onLoginSuccess() }
+                .addOnFailureListener { _: Exception -> onLoginSuccess() }
+        } else {
+            onLoginSuccess()
+        }
+    }
     val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
         .requestIdToken(context.getString(R.string.default_web_client_id)).requestEmail().build()
     val googleSignInClient = GoogleSignIn.getClient(context, gso)
@@ -71,11 +83,12 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
                 val account = task.getResult(Exception::class.java)
-                firebaseAuthWithGoogle(account, auth, prefs, onLoginSuccess)
+                firebaseAuthWithGoogle(account, auth, prefs, handleLoginSuccess)
             } catch (_: Exception) {
                 isLoading = false
             }
         }
+
 
     Column(
         modifier = Modifier

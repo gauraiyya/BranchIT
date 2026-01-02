@@ -63,7 +63,9 @@ class UsernameRepository(
         }
     }
 
-    fun reserveUsername(username: String): Task<Void> {
+    suspend fun reserveUsername(username: String): Task<Void> {
+        if (username.isBlank()) throw IllegalArgumentException("Username cannot be empty")
+
         val currentUser = auth.currentUser ?: return Tasks.forException(FirebaseFirestoreException("NOT_AUTHENTICATED", FirebaseFirestoreException.Code.PERMISSION_DENIED))
         val uid = currentUser.uid
         val uname = normalize(username)
@@ -100,7 +102,9 @@ class UsernameRepository(
         }
     }
 
-    fun changeUsername(newUsername: String): Task<Void> {
+    suspend fun changeUsername(newUsername: String): Task<Void> {
+        if (newUsername.isBlank()) throw IllegalArgumentException("Username cannot be empty")
+
         val currentUser = auth.currentUser ?: return Tasks.forException(FirebaseFirestoreException("NOT_AUTHENTICATED", FirebaseFirestoreException.Code.PERMISSION_DENIED))
         val uid = currentUser.uid
         val newU = normalize(newUsername)
