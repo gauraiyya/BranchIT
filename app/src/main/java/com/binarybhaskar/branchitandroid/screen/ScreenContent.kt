@@ -1,15 +1,27 @@
 package com.binarybhaskar.branchitandroid.screen
 
+//import com.binarybhaskar.branchitandroid.data.ChatRepository
+//import com.binarybhaskar.branchitandroid.data.ChatTarget
+//import com.binarybhaskar.branchitandroid.data.PostRepository
+//import com.binarybhaskar.branchitandroid.util.InteractionStore
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,37 +29,38 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LiveHelp
 import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.automirrored.outlined.LiveHelp
 import androidx.compose.material.icons.automirrored.outlined.Message
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.AddCircleOutline
-import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AddCircleOutline
-import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PeopleOutline
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBar
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,27 +79,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.binarybhaskar.branchitandroid.R
-//import com.binarybhaskar.branchitandroid.data.ChatRepository
-//import com.binarybhaskar.branchitandroid.data.ChatTarget
-//import com.binarybhaskar.branchitandroid.data.PostRepository
+import com.binarybhaskar.branchitandroid.data.UserProfile
 import com.binarybhaskar.branchitandroid.data.UserRepository
 import com.binarybhaskar.branchitandroid.navigation.Destinations
-//import com.binarybhaskar.branchitandroid.util.InteractionStore
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +132,31 @@ fun ScreenContent(navController: NavController) {
     )
     val repo = remember { UserRepository() }
     val scope = rememberCoroutineScope()
+
+    // Search state
+    var isSearchExpanded by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val searchResults = remember { mutableStateListOf<UserProfile>() }
+    val connectionRepo = remember { com.binarybhaskar.branchitandroid.data.ConnectionRepository() }
+    var selectedSearchUser by remember { mutableStateOf<UserProfile?>(null) }
+    var showUserProfilePopup by remember { mutableStateOf(false) }
+
+    // Search functionality
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank() && searchQuery.length >= 2) {
+            scope.launch {
+                try {
+                    val results = connectionRepo.searchUsers(searchQuery, com.binarybhaskar.branchitandroid.data.SearchFilter.ALL, 10)
+                    searchResults.clear()
+                    searchResults.addAll(results)
+                } catch (_: Exception) {
+                    searchResults.clear()
+                }
+            }
+        } else {
+            searchResults.clear()
+        }
+    }
 
     // Seed from cached profile for instant UI
     var firebasePhotoUrl by remember(user.uid) {
@@ -213,53 +247,128 @@ fun ScreenContent(navController: NavController) {
         Scaffold(topBar = {
             TopAppBar(
                 title = {
-                    Row {
-                        val logoScale by animateFloatAsState(
-                            targetValue = if (selectedTab != 0) 1.15f else 1.0f,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessLow
-                            ),
-                            label = "LogoScale"
-                        )
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_branchit),
-                            contentDescription = "BranchIT Title",
-                            modifier = Modifier
-                                .height(48.dp)
-                                .scale(logoScale)
-                        )
+                    AnimatedVisibility(
+                        visible = !isSearchExpanded,
+                        enter = fadeIn() + slideInHorizontally(),
+                        exit = fadeOut() + slideOutHorizontally()
+                    ) {
+                        Row {
+                            val logoScale by animateFloatAsState(
+                                targetValue = if (selectedTab != 0) 1.15f else 1.0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                ),
+                                label = "LogoScale"
+                            )
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_branchit),
+                                contentDescription = "BranchIT Title",
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .scale(logoScale)
+                            )
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = isSearchExpanded,
+                        enter = fadeIn() + slideInHorizontally(),
+                        exit = fadeOut() + slideOutHorizontally()
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Search,
+                                    contentDescription = "Search",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = { searchQuery = it },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 16.sp
+                                    ),
+                                    decorationBox = { innerTextField ->
+                                        if (searchQuery.isEmpty()) {
+                                            Text(
+                                                "Search users...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+                            }
+                        }
                     }
                 },
                 actions = {
-                    Box(modifier = Modifier.padding(end = 16.dp)) {
-                        val url = firebasePhotoUrl
-                        if (url != null && url.isNotBlank()) {
-                            AsyncImage(
-                                model = url,
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        navController.navigate(Destinations.SETTINGS) {
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    })
-                        } else {
+                    if (isSearchExpanded) {
+                        IconButton(onClick = {
+                            isSearchExpanded = false
+                            searchQuery = ""
+                            searchResults.clear()
+                        }) {
                             Icon(
-                                imageVector = Icons.Outlined.AccountCircle,
-                                contentDescription = "Default Profile Picture",
-                                modifier = Modifier
-                                    .size(42.dp)
-                                    .clickable {
-                                        navController.navigate(Destinations.SETTINGS) {
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
-                                    }
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Close Search",
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    } else {
+                        IconButton(onClick = { isSearchExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = "Search",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Box(modifier = Modifier.padding(end = 16.dp)) {
+                            val url = firebasePhotoUrl
+                            if (url != null && url.isNotBlank()) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = "Profile Picture",
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            navController.navigate(Destinations.SETTINGS) {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        })
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.AccountCircle,
+                                    contentDescription = "Default Profile Picture",
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .clickable {
+                                            navController.navigate(Destinations.SETTINGS) {
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                )
+                            }
                         }
                     }
                 },
@@ -348,8 +457,120 @@ fun ScreenContent(navController: NavController) {
                 }
             }
         }) { innerPadding ->
-            NavBarBox(
-                innerPadding, tabs, mountedTabs, selectedTab, stateHolder)
+            Box {
+                NavBarBox(
+                    innerPadding, tabs, mountedTabs, selectedTab, stateHolder)
+
+                // Search results overlay
+                if (isSearchExpanded && searchResults.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(innerPadding)
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 8.dp
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp)
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(searchResults, key = { it.uid }) { user ->
+                                SearchResultItem(user) {
+                                    // Open user profile popup
+                                    selectedSearchUser = user
+                                    showUserProfilePopup = true
+                                    isSearchExpanded = false
+                                    searchQuery = ""
+                                    searchResults.clear()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // User Profile Popup from search
+    if (showUserProfilePopup && selectedSearchUser != null) {
+        val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showUserProfilePopup = false },
+            sheetState = sheetState
+        ) {
+            UserProfilePopup(
+                user = selectedSearchUser!!,
+                repo = connectionRepo,
+                onDismiss = { },
+                onRefresh = { }
+            )
+        }
+    }
+}
+
+@Composable
+fun SearchResultItem(user: UserProfile, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val photoUrl = user.profilePicUrl
+            if (photoUrl?.isNotBlank() == true) {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = user.displayName.ifBlank { "User" },
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium
+                )
+                if (user.username.isNotBlank()) {
+                    Text(
+                        text = "@${user.username}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+            }
         }
     }
 }
@@ -376,7 +597,6 @@ fun NavBarBox(
                         dampingRatio = Spring.DampingRatioNoBouncy,
                         stiffness = Spring.StiffnessLow
                     ), label = "TabAlpha"
-
                 )
                 stateHolder.SaveableStateProvider(key = index) {
                     Box(

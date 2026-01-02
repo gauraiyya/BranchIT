@@ -32,6 +32,15 @@ data class UserProfile(
     @Keep val xpPoints: Int = 0,
     @Keep val badges: List<String> = emptyList(),
 
+    // Follow System (Instagram/Twitter-like) - No acceptance needed
+    @Keep val following: List<String> = emptyList(), // Users this user follows
+    @Keep val followers: List<String> = emptyList(), // Users following this user
+
+    // Connections (LinkedIn-like) - Mutual acceptance required
+    @Keep val connections: List<String> = emptyList(), // List of connected user UIDs
+    @Keep val pendingConnectionsSent: List<String> = emptyList(), // Connection requests sent
+    @Keep val pendingConnectionsReceived: List<String> = emptyList(), // Connection requests received
+
     // Security & Status
     @Keep val isPrivate: Boolean = false,
     @Keep val searchHash: String = "",
