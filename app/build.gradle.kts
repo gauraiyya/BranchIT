@@ -77,6 +77,8 @@ dependencies {
     implementation(libs.androidx.foundation.layout)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.animation)
+    implementation("com.github.yalantis:ucrop:2.2.8")
+    implementation("androidx.activity:activity-ktx:1.7.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

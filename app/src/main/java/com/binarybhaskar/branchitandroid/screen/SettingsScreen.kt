@@ -92,6 +92,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import android.os.Build
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import com.yalantis.ucrop.UCrop
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("DEPRECATION")
@@ -105,12 +112,11 @@ fun SettingsScreen(navController: NavController, prefs: SharedPreferences) {
 
     var dynamicColor by remember { mutableStateOf(prefs.getBoolean("dynamic_color", true)) }
     val scope = rememberCoroutineScope()
+    var isSaving by remember { mutableStateOf(false) }
 
     // Local repo and state
     val repo = remember { UserRepository() }
     val usernameRepo = remember { UsernameRepository(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance()) }
-    var isSaving by remember { mutableStateOf(false) }
-
     // Username validation states
     var usernameError by remember { mutableStateOf<String?>(null) }
     var isCheckingUsername by remember { mutableStateOf(false) }
@@ -166,22 +172,18 @@ fun SettingsScreen(navController: NavController, prefs: SharedPreferences) {
         }
     }
 
-
-    // Image picker for profile
-    val imagePicker =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
+    // Croppers for profile and background (must be before imagePicker/backgroundPicker)
+    val cropProfileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val resultUri = UCrop.getOutput(result.data!!)
+            if (resultUri != null) {
                 scope.launch {
+                    isSaving = true
                     try {
-                        isSaving = true
-                        val inputStream = context.contentResolver.openInputStream(uri)
-                        val bytes = inputStream?.readBytes()
-                        inputStream?.close()
-
+                        val bytes = compressToWebP(context, resultUri, 120 * 1024)
                         if (bytes != null) {
                             val uid = user?.uid ?: throw IllegalStateException("No user")
-                            val ref = FirebaseStorage.getInstance()
-                                .reference.child("users/$uid/profile_${System.currentTimeMillis()}.jpg")
+                            val ref = FirebaseStorage.getInstance().reference.child("users/$uid/profile_${System.currentTimeMillis()}.webp")
                             val uploadTask = ref.putBytes(bytes)
                             val result = uploadTask.await()
                             if (result.task.isSuccessful) {
@@ -192,33 +194,28 @@ fun SettingsScreen(navController: NavController, prefs: SharedPreferences) {
                                 Toast.makeText(context, "Upload failed: ${result.error?.message}", Toast.LENGTH_LONG).show()
                             }
                         } else {
-                            Toast.makeText(context, "Failed to read image", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Failed to compress image", Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(context, e.message ?: "Upload failed", Toast.LENGTH_LONG)
-                            .show()
+                        Toast.makeText(context, e.message ?: "Upload failed", Toast.LENGTH_LONG).show()
                     } finally {
                         isSaving = false
                     }
                 }
             }
         }
-
-    // Background image picker
-    val backgroundPicker =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            if (uri != null) {
+    }
+    val cropBackgroundLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val resultUri = UCrop.getOutput(result.data!!)
+            if (resultUri != null) {
                 scope.launch {
+                    isSaving = true
                     try {
-                        isSaving = true
-                        val inputStream = context.contentResolver.openInputStream(uri)
-                        val bytes = inputStream?.readBytes()
-                        inputStream?.close()
-
+                        val bytes = compressToWebP(context, resultUri, 250 * 1024)
                         if (bytes != null) {
                             val uid = user?.uid ?: throw IllegalStateException("No user")
-                            val ref = FirebaseStorage.getInstance()
-                                .reference.child("users/$uid/background_${System.currentTimeMillis()}.jpg")
+                            val ref = FirebaseStorage.getInstance().reference.child("users/$uid/background_${System.currentTimeMillis()}.webp")
                             val uploadTask = ref.putBytes(bytes)
                             val result = uploadTask.await()
                             if (result.task.isSuccessful) {
@@ -229,15 +226,41 @@ fun SettingsScreen(navController: NavController, prefs: SharedPreferences) {
                                 Toast.makeText(context, "Upload failed: ${result.error?.message}", Toast.LENGTH_LONG).show()
                             }
                         } else {
-                            Toast.makeText(context, "Failed to read image", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Failed to compress image", Toast.LENGTH_LONG).show()
                         }
                     } catch (e: Exception) {
-                        Toast.makeText(context, e.message ?: "Upload failed", Toast.LENGTH_LONG)
-                            .show()
+                        Toast.makeText(context, e.message ?: "Upload failed", Toast.LENGTH_LONG).show()
                     } finally {
                         isSaving = false
                     }
                 }
+            }
+        }
+    }
+
+    // Image picker for profile
+    val imagePicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            if (uri != null) {
+                val destUri = Uri.fromFile(File(context.cacheDir, "cropped_profile_${UUID.randomUUID()}.webp"))
+                val intent = UCrop.of(uri, destUri)
+                    .withAspectRatio(1f, 1f)
+                    .withMaxResultSize(1080, 1080)
+                    .getIntent(context)
+                cropProfileLauncher.launch(intent)
+            }
+        }
+
+    // Background image picker
+    val backgroundPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+            if (uri != null) {
+                val destUri = Uri.fromFile(File(context.cacheDir, "cropped_background_${UUID.randomUUID()}.webp"))
+                val intent = UCrop.of(uri, destUri)
+                    .withAspectRatio(16f, 9f)
+                    .withMaxResultSize(1920, 1080)
+                    .getIntent(context)
+                cropBackgroundLauncher.launch(intent)
             }
         }
 
@@ -530,7 +553,6 @@ fun SettingsScreen(navController: NavController, prefs: SharedPreferences) {
             }
         }
     }
-
 
     // Modern Custom UI with background image
     Box(modifier = Modifier.fillMaxSize()) {
@@ -1588,4 +1610,21 @@ fun ThemeOption(
             )
         }
     }
+}
+
+// Helper for compressing images to WebP with size limit
+fun compressToWebP(context: Context, uri: Uri, maxSize: Int): ByteArray? {
+    val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+    val bitmap = BitmapFactory.decodeStream(inputStream)
+    inputStream.close()
+    var quality = 90
+    var outputStream: ByteArrayOutputStream
+    var byteArray: ByteArray
+    do {
+        outputStream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.WEBP, quality, outputStream)
+        byteArray = outputStream.toByteArray()
+        quality -= 5
+    } while (byteArray.size > maxSize && quality > 10)
+    return byteArray
 }

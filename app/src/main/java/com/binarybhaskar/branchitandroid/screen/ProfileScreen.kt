@@ -15,10 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +45,7 @@ import com.binarybhaskar.branchitandroid.data.Project
 import com.binarybhaskar.branchitandroid.data.Achievement
 import com.google.firebase.auth.FirebaseAuth
 import androidx.core.net.toUri
+import java.util.UUID
 
 @Composable
 fun ProfileScreen() {
@@ -350,4 +351,3 @@ fun UserProfileCard(userId: String, onEdit: (() -> Unit)? = null) {
         }
     }
 }
-
