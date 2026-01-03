@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.People
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,7 +49,7 @@ import com.binarybhaskar.branchitandroid.data.UserProfile
 import com.binarybhaskar.branchitandroid.data.UserRepository
 import com.binarybhaskar.branchitandroid.ui.component.UserProfileCard
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,8 +236,50 @@ fun ConnectionListItem(user: UserProfile) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
+                }) { Text("Download Resume") }
+            }
+
+            // Projects - richer display: title, description, link
+            val projectsDetailed = projectsDetailedState.value
+            if (projectsDetailed.isNotEmpty()) {
+                Text("Projects")
+                projectsDetailed.forEach { proj ->
+                    if (proj.title.isNotBlank()) Text(proj.title, style = MaterialTheme.typography.titleSmall)
+                    if (proj.description.isNotBlank()) Text(proj.description, style = MaterialTheme.typography.bodySmall)
+                    proj.link?.takeIf { it.isNotBlank() }?.let { link ->
+                        TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, link.toUri())) }) {
+                            Text(link, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+
+            // Achievements
+            val achievements = achievementsState.value
+            if (achievements.isNotEmpty()) {
+                Text("Achievements")
+                achievements.forEach { a ->
+                    Text("${a.title} — ${a.issuer} (${a.date})", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            // Extra social links (mail/discord/reddit)
+            if (mailState.value.isNotBlank() || discordState.value.isNotBlank() || redditState.value.isNotBlank()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (mailState.value.isNotBlank()) {
+                        TextButton(onClick = {
+                            ctx.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:${mailState.value}".toUri()))
+                        }) { Text("Email") }
+                    }
+                    if (discordState.value.isNotBlank()) {
+                        TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, discordState.value.toUri())) }) { Text("Discord") }
+                    }
+                    if (redditState.value.isNotBlank()) {
+                        TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, redditState.value.toUri())) }) { Text("Reddit") }
+                    }
                 }
             }
         }
     }
 }
+
